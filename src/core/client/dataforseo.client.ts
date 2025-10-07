@@ -37,12 +37,67 @@ export class DataForSEOClient {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      let errorBody: unknown;
+      try {
+        errorBody = await response.json();
+      } catch {
+        try {
+          errorBody = await response.text();
+        } catch {
+          errorBody = undefined;
+        }
+      }
+
+      if (response.status === 401) {
+        const details = extractErrorDetails(errorBody);
+        throw new Error(
+          [
+            "DataForSEO authentication failed (HTTP 401).",
+            "Verify that DATAFORSEO_USERNAME and DATAFORSEO_PASSWORD match your DataForSEO account login credentials.",
+            details ? `Response details: ${details}` : undefined,
+          ]
+            .filter(Boolean)
+            .join(" ")
+        );
+      }
+
+      const details = extractErrorDetails(errorBody) || response.statusText;
+      throw new Error(`HTTP error! status: ${response.status}${details ? ` - ${details}` : ""}`);
     }
 
     return response.json();
   }
-} 
+}
+
+function extractErrorDetails(errorBody: unknown): string | undefined {
+  if (!errorBody) {
+    return undefined;
+  }
+
+  if (typeof errorBody === "string") {
+    return errorBody;
+  }
+
+  if (typeof errorBody === "object") {
+    const maybeMessage =
+      // DataForSEO full responses
+      (errorBody as { status_message?: string }).status_message ||
+      // DataForSEO short responses / error payloads
+      (errorBody as { message?: string }).message;
+
+    if (maybeMessage) {
+      return maybeMessage;
+    }
+
+    try {
+      return JSON.stringify(errorBody);
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
 
 export interface DataForSEOConfig {
   username: string;

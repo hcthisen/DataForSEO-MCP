@@ -146,6 +146,10 @@ All HTTP, MCP, and SSE requests must include one of the API keys listed in `MCP_
 
 Requests to endpoints such as `/http`, `/mcp`, `/sse`, and `/messages` will be rejected with `401 Unauthorized` if the header is missing or the key is invalid. DataForSEO credentials are never supplied per request; they remain server-side environment variables.
 
+### Troubleshooting 401 errors from DataForSEO
+
+If a tool response contains `DataForSEO authentication failed (HTTP 401)` the upstream API rejected the request because the credentials supplied through `DATAFORSEO_USERNAME` and `DATAFORSEO_PASSWORD` are incorrect. Use the same username and password that you enter when logging into the [DataForSEO API dashboard](https://app.dataforseo.com/), not an API key. Update the environment variables in your deployment platform and restart the service after correcting the values.
+
 ## Cloudflare Worker Deployment
 
 The DataForSEO MCP Server can be deployed as a Cloudflare Worker for serverless, edge-distributed access to DataForSEO APIs.
