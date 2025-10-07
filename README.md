@@ -181,6 +181,8 @@ The worker uses the same environment variables as the standard server:
 - `ENABLED_PROMPTS`: Comma-separated list of prompt names to enable
 - `DATAFORSEO_FULL_RESPONSE`: Set to "true" for full API responses
 
+All requests to `/mcp`, `/http`, `/sse`, and `/messages` must present one of the keys from `MCP_API_KEYS` either via `Authorization: Bearer <API_KEY>` or the `x-api-key` header. The worker will respond with `401 Unauthorized` if the header is missing, the key is invalid, or when `MCP_API_KEYS` is not configured.
+
 ### Worker Endpoints
 
 Once deployed, your worker will be available at `https://your-worker.your-subdomain.workers.dev/` with the following endpoints:

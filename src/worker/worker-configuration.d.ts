@@ -4,18 +4,19 @@
 declare namespace Cloudflare {
 	interface Env {
 		DATAFORSEO_USERNAME: "YOUR_LOGIN";
-		DATAFORSEO_PASSWORD: "YOUR_PASSWORD";
-		ENABLED_MODULES: null;
-		DATAFORSEO_FULL_RESPONSE: "false";
-		MCP_OBJECT: DurableObjectNamespace /* DataForSEOMcpAgent */;
-	}
+                DATAFORSEO_PASSWORD: "YOUR_PASSWORD";
+                MCP_API_KEYS: "public_client_key_1,public_client_key_2";
+                ENABLED_MODULES: null;
+                DATAFORSEO_FULL_RESPONSE: "false";
+                MCP_OBJECT: DurableObjectNamespace /* DataForSEOMcpAgent */;
+        }
 }
 interface Env extends Cloudflare.Env {}
 type StringifyValues<EnvType extends Record<string, unknown>> = {
-	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
+        [Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DATAFORSEO_USERNAME" | "DATAFORSEO_PASSWORD" | "ENABLED_MODULES" | "DATAFORSEO_FULL_RESPONSE">> {}
+        interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DATAFORSEO_USERNAME" | "DATAFORSEO_PASSWORD" | "MCP_API_KEYS" | "ENABLED_MODULES" | "DATAFORSEO_FULL_RESPONSE">> {}
 }
 
 // Begin runtime types

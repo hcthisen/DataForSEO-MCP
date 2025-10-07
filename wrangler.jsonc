@@ -7,8 +7,12 @@
   "compatibility_flags": ["nodejs_compat"],
   "minify": true,
   "vars": {
+    // API credentials for DataForSEO (required)
     "DATAFORSEO_USERNAME": "YOUR_LOGIN",
     "DATAFORSEO_PASSWORD": "YOUR_PASSWORD",
+    // Comma-separated list of client API keys required in the Authorization or x-api-key header
+    "MCP_API_KEYS": "public_client_key_1,public_client_key_2",
+    // Optional feature toggles
     "ENABLED_MODULES": null,
     "DATAFORSEO_FULL_RESPONSE": "false"
   },
