@@ -51,17 +51,49 @@ export abstract class BaseTool {
     if( defaultGlobalToolConfig.simpleFilter ) {
       return z.array(z.any());
     }
-    const filterExpression = 
-    z.array(
-        z.union([
-          z.array(z.union([z.string(), z.number(), z.boolean()])).length(3),
-          z.enum(["and", "or"]),
-          z.array(z.unknown()).length(3),
-          z.union([z.string(), z.number(),z.unknown()]),
-          z.any()  
-        ])
-      ).max(3);
-    return filterExpression;
+    const logicalOperator = z.enum(["and", "or"]);
+
+    const scalarValue = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+    const arrayValue = z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])).min(1);
+
+    const filterValue = z.union([scalarValue, arrayValue]);
+
+    const filterCondition = z.tuple([
+      z.string(),
+      z.enum([
+        "=",
+        "<>",
+        "<",
+        "<=",
+        ">",
+        ">=",
+        "in",
+        "not_in",
+        "like",
+        "not_like",
+        "ilike",
+        "not_ilike",
+        "regex",
+        "not_regex",
+        "match",
+        "not_match",
+        "between",
+        "not_between",
+        "contains_all",
+        "contains_any"
+      ]),
+      z.union([
+        filterValue,
+        z.tuple([scalarValue, scalarValue]),
+        z.array(filterValue).min(1)
+      ])
+    ]);
+
+    const filterGroup: z.ZodType<any> = z.lazy(() =>
+      z.array(z.union([filterCondition, logicalOperator, filterGroup])).min(1)
+    );
+
+    return filterGroup;
   }
 
   protected validateAndFormatResponse(response: any): { content: Array<{ type: string; text: string }> } {
