@@ -7,6 +7,10 @@ export class SerpYoutubeOrganicLiveAdvancedTool extends BaseTool {
     super(dataForSEOClient);
   }
 
+  protected supportOnlyFullResponse(): boolean {
+    return true;
+  }
+
   getName(): string {
     return 'serp_youtube_organic_live_advanced';
   }
@@ -45,15 +49,30 @@ max value: 700`)
 
   async handle(params:any): Promise<any> {
     try {
-      console.error(JSON.stringify(params, null, 2));
-      const response = await this.dataForSEOClient.makeRequest(`/v3/serp/youtube/organic/live/advanced`, 'POST', [{
+      const payload: Record<string, unknown> = {
         keyword: params.keyword,
         location_name: params.location_name,
         language_code: params.language_code,
-        device: params.device,
-        os: params.os,
-        block_depth: params.block_depth,
-      }]);
+      };
+
+      if (params.device) {
+        payload.device = params.device;
+      }
+
+      if (params.os) {
+        payload.os = params.os;
+      }
+
+      if (typeof params.block_depth !== 'undefined') {
+        payload.block_depth = params.block_depth;
+      }
+
+      const response = await this.dataForSEOClient.makeRequest(
+        `/v3/serp/youtube/organic/live/advanced`,
+        'POST',
+        [payload],
+        true,
+      );
       return this.validateAndFormatResponse(response);
     } catch (error) {
       return this.formatErrorResponse(error);
