@@ -57,6 +57,11 @@ export DATAFORSEO_FULL_RESPONSE="false"
 # If set to true, a simplified version of the filters schema will be used.
 # This is required for ChatGPT APIs or other LLMs that cannot handle nested structures.
 export DATAFORSEO_SIMPLE_FILTER="false"
+
+# Optional: enable debug logging
+# If set to true, request details and raw API responses will be logged to stderr for troubleshooting.
+# Leave unset or set to false in production to avoid leaking sensitive information in logs.
+export DEBUG="false"
 ```
 
 ## Installation as an NPM Package
@@ -122,7 +127,15 @@ export MCP_API_KEYS="your_public_api_key,another_api_key"
 # Optional
 export DATAFORSEO_SIMPLE_FILTER="false"
 export DATAFORSEO_FULL_RESPONSE="true"
+export DEBUG="false"
 ```
+
+### Debug Logging
+
+Set the `DEBUG` environment variable to `true` to emit verbose logs that include outbound request metadata and the raw API
+responses returned by DataForSEO. This can help with troubleshooting during development. When `DEBUG` is unset or `false`, these
+logs are suppressed so that sensitive payloads are not written to shared logs. The flag is evaluated at process start via
+`defaultGlobalToolConfig.debug`, so restart the service after changing the environment variable.
 
 ### Client Authentication
 
