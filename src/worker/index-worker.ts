@@ -19,6 +19,8 @@ const SERVER_NAME = `${name} (Worker)`;
 const SERVER_VERSION = version;
 globalThis.__PACKAGE_VERSION__ = version;
 globalThis.__PACKAGE_NAME__ = name;
+
+const PROTECTED_PATHS = new Set(["/mcp", "/http", "/sse", "/messages", "/sse/message"]);
 /**
  * DataForSEO MCP Agent for Cloudflare Workers
  */
@@ -89,6 +91,43 @@ function createErrorResponse(code: number, message: string): Response {
   });
 }
 
+function loadAllowedApiKeys(env: Env, envVar = "MCP_API_KEYS"): Set<string> | null {
+  const rawKeys = (env as Record<string, string | undefined>)[envVar];
+
+  if (!rawKeys || typeof rawKeys !== "string") {
+    return null;
+  }
+
+  const keys = rawKeys
+    .split(",")
+    .map((key) => key.trim())
+    .filter((key) => key.length > 0);
+
+  if (keys.length === 0) {
+    return null;
+  }
+
+  return new Set(keys);
+}
+
+function extractClientToken(request: Request): string | null {
+  const authHeader = request.headers.get("Authorization");
+
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring("Bearer ".length).trim();
+    if (token) {
+      return token;
+    }
+  }
+
+  const apiKeyHeader = request.headers.get("x-api-key");
+  if (apiKeyHeader?.trim()) {
+    return apiKeyHeader.trim();
+  }
+
+  return null;
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -109,8 +148,22 @@ export default {
     }
     // Check if credentials are configured
     if (!env.DATAFORSEO_USERNAME?.trim() || !env.DATAFORSEO_PASSWORD?.trim()) {
-      if (['/mcp','/http', '/sse', '/messages','/sse/message'].includes(url.pathname)) {
+      if (PROTECTED_PATHS.has(url.pathname)) {
         return createErrorResponse(-32001, "DataForSEO credentials not configured in worker environment variables");
+      }
+    }
+
+    if (PROTECTED_PATHS.has(url.pathname)) {
+      const allowedApiKeys = loadAllowedApiKeys(env);
+
+      if (!allowedApiKeys) {
+        return createErrorResponse(-32001, "MCP API keys not configured in worker environment variables");
+      }
+
+      const token = extractClientToken(request);
+
+      if (!token || !allowedApiKeys.has(token)) {
+        return createErrorResponse(-32001, "Unauthorized");
       }
     }
     // MCP endpoints using McpAgent pattern
