@@ -12,22 +12,17 @@ import { BacklinksApiModule } from "../core/modules/backlinks/backlinks-api.modu
 import { BusinessDataApiModule } from "../core/modules/business-data-api/business-data-api.module.js";
 import { DomainAnalyticsApiModule } from "../core/modules/domain-analytics/domain-analytics-api.module.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import express, { Request as ExpressRequest, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
 import { randomUUID } from "node:crypto";
 import { GetPromptResult, isInitializeRequest, ReadResourceResult, ServerNotificationSchema } from "@modelcontextprotocol/sdk/types.js"
 import { name, version } from '../core/utils/version.js';
 import { ModuleLoaderService } from "../core/utils/module-loader.js";
 import { initializeFieldConfiguration } from '../core/config/field-configuration.js';
 import { initMcpServer } from "./init-mcp-server.js";
+import { createApiKeyAuthMiddleware, loadAllowedApiKeys } from "./auth.js";
 
 // Initialize field configuration if provided
 initializeFieldConfiguration();
-
-// Extended request interface to include auth properties
-interface Request extends ExpressRequest {
-  username?: string;
-  password?: string;
-}
 
 console.error('Starting DataForSEO MCP Server...');
 console.error(`Server name: ${name}, version: ${version}`);
@@ -40,39 +35,8 @@ async function main() {
   const app = express();
   app.use(express.json());
 
-  // Basic Auth Middleware
-  const basicAuth = (req: Request, res: Response, next: NextFunction) => {
-    // Check for Authorization header
-    const authHeader = req.headers.authorization;
-    console.error(authHeader)
-    if (!authHeader || !authHeader.startsWith('Basic ')) {
-      next();
-      return;
-    }
-
-    // Extract credentials
-    const base64Credentials = authHeader.split(' ')[1];
-    const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
-    const [username, password] = credentials.split(':');
-
-    if (!username || !password) {
-      console.error('Invalid credentials');
-      res.status(401).json({
-        jsonrpc: "2.0",
-        error: {
-          code: -32001, 
-          message: "Invalid credentials"
-        },
-        id: null
-      });
-      return;
-    }
-
-    // Add credentials to request
-    req.username = username;
-    req.password = password;
-    next();
-  };
+  const allowedApiKeys = loadAllowedApiKeys();
+  const authenticate = createApiKeyAuthMiddleware(allowedApiKeys);
 
   const handleMcpRequest = async (req: Request, res: Response) => {
     // In stateless mode, create a new instance of transport and server for each request
@@ -81,29 +45,7 @@ async function main() {
     
     try {
       
-      // Check if we have valid credentials
-      if (!req.username && !req.password) {
-        // If no request auth, check environment variables
-        const envUsername = process.env.DATAFORSEO_USERNAME;
-        const envPassword = process.env.DATAFORSEO_PASSWORD;
-        if (!envUsername || !envPassword) {
-          console.error('No DataForSEO credentials provided');
-          res.status(401).json({
-            jsonrpc: "2.0",
-            error: {
-              code: -32001,
-              message: "Authentication required. Provide DataForSEO credentials."
-            },
-            id: null
-          });
-          return;
-        }
-        // Use environment variables
-        req.username = envUsername;
-        req.password = envPassword;
-      }
-      
-      const server = initMcpServer(req.username, req.password); 
+      const server = initMcpServer();
       console.error(Date.now().toLocaleString())
 
       const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
@@ -147,9 +89,9 @@ async function main() {
     });
   };
 
-  // Apply basic auth and shared handler to both endpoints
-  app.post('/http', basicAuth, handleMcpRequest);
-  app.post('/mcp', basicAuth, handleMcpRequest);
+  // Apply API key auth and shared handler to both endpoints
+  app.post('/http', authenticate, handleMcpRequest);
+  app.post('/mcp', authenticate, handleMcpRequest);
 
   app.get('/http', handleNotAllowed('GET HTTP'));
   app.get('/mcp', handleNotAllowed('GET MCP'));

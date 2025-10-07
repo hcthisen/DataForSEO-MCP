@@ -15,7 +15,7 @@ initializeFieldConfiguration();
 console.error('Starting DataForSEO MCP Server...');
 console.error(`Server name: ${name}, version: ${version}`);
 
-const server = initMcpServer(process.env.DATAFORSEO_USERNAME, process.env.DATAFORSEO_PASSWORD);
+const server = initMcpServer();
 
 // Start the server
 async function main() {

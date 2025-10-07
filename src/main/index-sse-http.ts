@@ -1,4 +1,4 @@
-import express, { Request as ExpressRequest, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -13,6 +13,7 @@ import { InMemoryEventStore } from '@modelcontextprotocol/sdk/examples/shared/in
 import { ModuleLoaderService } from '../core/utils/module-loader.js';
 import { initializeFieldConfiguration } from '../core/config/field-configuration.js';
 import { initMcpServer } from './init-mcp-server.js';
+import { createApiKeyAuthMiddleware, loadAllowedApiKeys } from './auth.js';
 
 // Initialize field configuration if provided
 initializeFieldConfiguration();
@@ -33,12 +34,6 @@ console.error(`Server name: ${name}, version: ${version}`);
 // Configuration constants
 const CONNECTION_TIMEOUT = 30000; // 30 seconds
 const CLEANUP_INTERVAL = 60000; // 1 minute
-
-// Extended request interface to include auth properties
-interface Request extends ExpressRequest {
-  username?: string;
-  password?: string;
-}
 
 // Transport interface with timestamp
 interface TransportWithTimestamp {
@@ -74,35 +69,8 @@ const cleanupInterval = setInterval(cleanupStaleConnections, CLEANUP_INTERVAL);
 const app = express();
 app.use(express.json());
 
-// Basic Auth Middleware
-const basicAuth = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Basic ')) {
-    next();
-    return;
-  }
-
-  const base64Credentials = authHeader.split(' ')[1];
-  const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
-  const [username, password] = credentials.split(':');
-
-  if (!username || !password) {
-    console.error('Invalid credentials');
-    res.status(401).json({
-      jsonrpc: "2.0",
-      error: {
-        code: -32001,
-        message: "Invalid credentials"
-      },
-      id: null
-    });
-    return;
-  }
-
-  req.username = username;
-  req.password = password;
-  next();
-};
+const allowedApiKeys = loadAllowedApiKeys();
+const authenticate = createApiKeyAuthMiddleware(allowedApiKeys);
 
 //=============================================================================
 // STREAMABLE HTTP TRANSPORT (PROTOCOL VERSION 2025-03-26)
@@ -116,27 +84,7 @@ const handleMcpRequest = async (req: Request, res: Response) => {
     try {
       console.error(Date.now().toLocaleString())
       
-    // Handle credentials
-      if (!req.username && !req.password) {
-        const envUsername = process.env.DATAFORSEO_USERNAME;
-        const envPassword = process.env.DATAFORSEO_PASSWORD;
-        if (!envUsername || !envPassword) {
-          console.error('No DataForSEO credentials provided');
-          res.status(401).json({
-            jsonrpc: "2.0",
-            error: {
-              code: -32001,
-              message: "Authentication required. Provide DataForSEO credentials."
-            },
-            id: null
-          });
-          return;
-        }
-        req.username = envUsername;
-        req.password = envPassword;
-      }
-      
-      const server = initMcpServer(req.username, req.password); 
+      const server = initMcpServer();
       console.error(Date.now().toLocaleString())
 
       const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
@@ -180,9 +128,9 @@ const handleNotAllowed = (method: string) => async (req: Request, res: Response)
     });
   };
 
-// Apply basic auth and shared handler to both endpoints
-app.post('/http', basicAuth, handleMcpRequest);
-app.post('/mcp', basicAuth, handleMcpRequest);
+// Apply API key auth and shared handler to both endpoints
+app.post('/http', authenticate, handleMcpRequest);
+app.post('/mcp', authenticate, handleMcpRequest);
 
 app.get('/http', handleNotAllowed('GET HTTP'));
 app.get('/mcp', handleNotAllowed('GET MCP'));
@@ -194,29 +142,8 @@ app.delete('/mcp', handleNotAllowed('DELETE MCP'));
 // DEPRECATED HTTP+SSE TRANSPORT (PROTOCOL VERSION 2024-11-05)
 //=============================================================================
 
-app.get('/sse', basicAuth, async (req: Request, res: Response) => {
+app.get('/sse', authenticate, async (req: Request, res: Response) => {
   console.log('Received GET request to /sse (deprecated SSE transport)');
-
-  // Handle credentials
-  if (!req.username && !req.password) {
-    const envUsername = process.env.DATAFORSEO_USERNAME;
-    const envPassword = process.env.DATAFORSEO_PASSWORD;
-    
-    if (!envUsername || !envPassword) {
-      console.error('No DataForSEO credentials provided');
-      res.status(401).json({
-        jsonrpc: "2.0",
-        error: {
-          code: -32001,
-          message: "Authentication required. Provide DataForSEO credentials."
-        },
-        id: null
-      });
-      return;
-    }
-    req.username = envUsername;
-    req.password = envPassword;
-  }
 
   const transport = new SSEServerTransport('/messages', res);
   
@@ -244,32 +171,12 @@ app.get('/sse', basicAuth, async (req: Request, res: Response) => {
   // Set socket timeout
   req.socket.setTimeout(CONNECTION_TIMEOUT);
 
-  const server = initMcpServer(req.username, req.password);
+  const server = initMcpServer();
   await server.connect(transport);
 });
 
-app.post("/messages", basicAuth, async (req: Request, res: Response) => {
+app.post("/messages", authenticate, async (req: Request, res: Response) => {
   const sessionId = req.query.sessionId as string;
-  
-  // Handle credentials
-  if (!req.username && !req.password) {
-    const envUsername = process.env.DATAFORSEO_USERNAME;
-    const envPassword = process.env.DATAFORSEO_PASSWORD;
-    
-    if (!envUsername || !envPassword) {
-      res.status(401).json({
-        jsonrpc: "2.0",
-        error: {
-          code: -32001,
-          message: "Authentication required. Provide DataForSEO credentials."
-        },
-        id: null
-      });
-      return;
-    }
-    req.username = envUsername;
-    req.password = envPassword;
-  }
 
   const transportData = transports[sessionId];
   if (!transportData) {
