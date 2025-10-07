@@ -6,19 +6,37 @@ import { BaseModule, ToolDefinition } from "../core/modules/base.module.js";
 import { z } from 'zod';
 import { name, version } from '../core/utils/version.js';
 
+let cachedDataForSeoConfig: DataForSEOConfig | null = null;
 
-export function initMcpServer(username: string | undefined, password: string | undefined): McpServer {
+function loadDataForSeoConfig(): DataForSEOConfig {
+  if (cachedDataForSeoConfig) {
+    return cachedDataForSeoConfig;
+  }
+
+  const username = process.env.DATAFORSEO_USERNAME?.trim();
+  const password = process.env.DATAFORSEO_PASSWORD?.trim();
+
+  if (!username || !password) {
+    throw new Error("DATAFORSEO_USERNAME and DATAFORSEO_PASSWORD environment variables must be set and non-empty");
+  }
+
+  cachedDataForSeoConfig = {
+    username,
+    password,
+  };
+
+  return cachedDataForSeoConfig;
+}
+
+export function initMcpServer(): McpServer {
   const server = new McpServer({
     name,
     version,
   }, { capabilities: { logging: {} } });
 
   // Initialize DataForSEO client
-  const dataForSEOConfig: DataForSEOConfig = {
-    username: username || "",
-    password: password || "",
-  };
-  
+  const dataForSEOConfig = loadDataForSeoConfig();
+
   const dataForSEOClient = new DataForSEOClient(dataForSEOConfig);
   console.error('DataForSEO client initialized');
   
