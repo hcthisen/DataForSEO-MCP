@@ -8,7 +8,7 @@ import { name, version } from '../core/utils/version.js';
 
 let cachedDataForSeoConfig: DataForSEOConfig | null = null;
 
-function loadDataForSeoConfig(): DataForSEOConfig {
+export function getValidatedDataForSeoConfig(): DataForSEOConfig {
   if (cachedDataForSeoConfig) {
     return cachedDataForSeoConfig;
   }
@@ -17,7 +17,7 @@ function loadDataForSeoConfig(): DataForSEOConfig {
   const password = process.env.DATAFORSEO_PASSWORD?.trim();
 
   if (!username || !password) {
-    throw new Error("DATAFORSEO_USERNAME and DATAFORSEO_PASSWORD environment variables must be set and non-empty");
+    throw new Error('Missing DataForSEO credentials. Set both DATAFORSEO_USERNAME and DATAFORSEO_PASSWORD environment variables.');
   }
 
   cachedDataForSeoConfig = {
@@ -28,16 +28,14 @@ function loadDataForSeoConfig(): DataForSEOConfig {
   return cachedDataForSeoConfig;
 }
 
-export function initMcpServer(): McpServer {
+export function initMcpServer(config: DataForSEOConfig = getValidatedDataForSeoConfig()): McpServer {
   const server = new McpServer({
     name,
     version,
   }, { capabilities: { logging: {} } });
 
   // Initialize DataForSEO client
-  const dataForSEOConfig = loadDataForSeoConfig();
-
-  const dataForSEOClient = new DataForSEOClient(dataForSEOConfig);
+  const dataForSEOClient = new DataForSEOClient(config);
   console.error('DataForSEO client initialized');
   
   // Parse enabled modules from environment
