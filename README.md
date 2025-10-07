@@ -18,6 +18,7 @@ Model Context Protocol (MCP) server implementation for DataForSEO, enabling AI a
 
 - Node.js (v14 or higher)
 - DataForSEO API credentials (API login and password)
+- MCP API key(s) for your clients
 
 ## Installation
 
@@ -37,6 +38,7 @@ npm install
 # Required
 export DATAFORSEO_USERNAME=your_username
 export DATAFORSEO_PASSWORD=your_password
+export MCP_API_KEYS="your_public_api_key,another_api_key"
 
 # Optional: specify which modules to enable (comma-separated)
 # If not set, all modules will be enabled
@@ -77,6 +79,7 @@ Remember to set environment variables before running the command:
 # Required environment variables
 export DATAFORSEO_USERNAME=your_username
 export DATAFORSEO_PASSWORD=your_password
+export MCP_API_KEYS="your_public_api_key"
 
 # Run with npx
 npx dataforseo-mcp-server
@@ -100,31 +103,35 @@ npx dataforseo-mcp-server http
 
 ## HTTP Server Configuration
 
-The server runs on port 3000 by default and supports both Basic Authentication and environment variable-based authentication.
+The server runs on port 3000 by default and expects DataForSEO credentials and API access keys to be provided through environment variables at deploy time.
 
 To start the HTTP server, run:
 ```bash
 npm run http
 ```
 
-### Authentication Methods
+### Deployment Environment Variables
 
-1. **Basic Authentication**
-   - Send requests with Basic Auth header:
-   ```
-   Authorization: Basic <base64-encoded-credentials>
-   ```
-   - Credentials format: `username:password`
+Configure the following variables in your hosting environment before starting the server:
 
-2. **Environment Variables**
-   - If no Basic Auth is provided, the server will use credentials from environment variables:
-   ```bash
-   export DATAFORSEO_USERNAME=your_username
-   export DATAFORSEO_PASSWORD=your_password
-   # Optional
-   export DATAFORSEO_SIMPLE_FILTER="false"
-   export DATAFORSEO_FULL_RESPONSE="true"
-   ```
+```bash
+export DATAFORSEO_USERNAME=your_username
+export DATAFORSEO_PASSWORD=your_password
+export MCP_API_KEYS="your_public_api_key,another_api_key"
+
+# Optional
+export DATAFORSEO_SIMPLE_FILTER="false"
+export DATAFORSEO_FULL_RESPONSE="true"
+```
+
+### Client Authentication
+
+All HTTP, MCP, and SSE requests must include one of the API keys listed in `MCP_API_KEYS`. Clients can send the key in either of the following headers:
+
+- `Authorization: Bearer <API_KEY>`
+- `x-api-key: <API_KEY>`
+
+Requests to endpoints such as `/http`, `/mcp`, `/sse`, and `/messages` will be rejected with `401 Unauthorized` if the header is missing or the key is invalid. DataForSEO credentials are never supplied per request; they remain server-side environment variables.
 
 ## Cloudflare Worker Deployment
 
@@ -153,6 +160,7 @@ The DataForSEO MCP Server can be deployed as a Cloudflare Worker for serverless,
    # Set environment variables
    wrangler secret put DATAFORSEO_USERNAME
    wrangler secret put DATAFORSEO_PASSWORD
+   wrangler secret put MCP_API_KEYS
    ```
 
 3. **Deploy Worker**:
@@ -167,9 +175,10 @@ The DataForSEO MCP Server can be deployed as a Cloudflare Worker for serverless,
 The worker uses the same environment variables as the standard server:
 
 - `DATAFORSEO_USERNAME`: Your DataForSEO username
-- `DATAFORSEO_PASSWORD`: Your DataForSEO password  
+- `DATAFORSEO_PASSWORD`: Your DataForSEO password
+- `MCP_API_KEYS`: Comma-separated list of API keys allowed to call the worker
 - `ENABLED_MODULES`: Comma-separated list of modules to enable
-- `ENABLED_PROMPTS`: Comma-separated list of prompt names to enable 
+- `ENABLED_PROMPTS`: Comma-separated list of prompt names to enable
 - `DATAFORSEO_FULL_RESPONSE`: Set to "true" for full API responses
 
 ### Worker Endpoints
@@ -198,6 +207,10 @@ Edit `wrangler.jsonc` to customize your deployment:
   }
 }
 ```
+
+## Coolify Deployment
+
+When deploying with [Coolify](https://coolify.io/), configure the required environment variables (`DATAFORSEO_USERNAME`, `DATAFORSEO_PASSWORD`, and `MCP_API_KEYS`) in the service settings so they are injected into the container at runtime. Optional variables like `ENABLED_MODULES`, `ENABLED_PROMPTS`, `DATAFORSEO_FULL_RESPONSE`, and `DATAFORSEO_SIMPLE_FILTER` can also be set there to customize module availability and response formats.
 
 ### Usage with Claude
 
