@@ -8,14 +8,15 @@ import { z } from 'zod';
 import { ModuleLoaderService } from "../core/utils/module-loader.js";
 import { initializeFieldConfiguration } from '../core/config/field-configuration.js';
 import { name, version } from '../core/utils/version.js';
-import { initMcpServer } from "./init-mcp-server.js";
+import { getValidatedDataForSeoConfig, initMcpServer } from "./init-mcp-server.js";
 
 // Initialize field configuration if provided
 initializeFieldConfiguration();
 console.error('Starting DataForSEO MCP Server...');
 console.error(`Server name: ${name}, version: ${version}`);
 
-const server = initMcpServer();
+const dataForSeoConfig = getValidatedDataForSeoConfig();
+const server = initMcpServer(dataForSeoConfig);
 
 // Start the server
 async function main() {

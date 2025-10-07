@@ -12,7 +12,7 @@ import { name, version } from '../core/utils/version.js';
 import { InMemoryEventStore } from '@modelcontextprotocol/sdk/examples/shared/inMemoryEventStore.js';
 import { ModuleLoaderService } from '../core/utils/module-loader.js';
 import { initializeFieldConfiguration } from '../core/config/field-configuration.js';
-import { initMcpServer } from './init-mcp-server.js';
+import { getValidatedDataForSeoConfig, initMcpServer } from './init-mcp-server.js';
 import { createApiKeyAuthMiddleware, loadAllowedApiKeys } from './auth.js';
 
 // Initialize field configuration if provided
@@ -84,7 +84,8 @@ const handleMcpRequest = async (req: Request, res: Response) => {
     try {
       console.error(Date.now().toLocaleString())
       
-      const server = initMcpServer();
+      const dataForSeoConfig = getValidatedDataForSeoConfig();
+      const server = initMcpServer(dataForSeoConfig);
       console.error(Date.now().toLocaleString())
 
       const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
@@ -171,7 +172,8 @@ app.get('/sse', authenticate, async (req: Request, res: Response) => {
   // Set socket timeout
   req.socket.setTimeout(CONNECTION_TIMEOUT);
 
-  const server = initMcpServer();
+  const dataForSeoConfig = getValidatedDataForSeoConfig();
+  const server = initMcpServer(dataForSeoConfig);
   await server.connect(transport);
 });
 

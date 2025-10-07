@@ -39,9 +39,16 @@ export class DataForSEOMcpAgent extends McpAgent {
     }
 
     // Initialize DataForSEO client
+    const username = workerEnv.DATAFORSEO_USERNAME?.trim();
+    const password = workerEnv.DATAFORSEO_PASSWORD?.trim();
+
+    if (!username || !password) {
+      throw new Error('Missing DataForSEO credentials in worker environment. Set DATAFORSEO_USERNAME and DATAFORSEO_PASSWORD.');
+    }
+
     const dataForSEOConfig: DataForSEOConfig = {
-      username: workerEnv.DATAFORSEO_USERNAME || "",
-      password: workerEnv.DATAFORSEO_PASSWORD || "",
+      username,
+      password,
     };
     
     const dataForSEOClient = new DataForSEOClient(dataForSEOConfig);
@@ -101,7 +108,7 @@ export default {
       });
     }
     // Check if credentials are configured
-    if (!env.DATAFORSEO_USERNAME || !env.DATAFORSEO_PASSWORD) {
+    if (!env.DATAFORSEO_USERNAME?.trim() || !env.DATAFORSEO_PASSWORD?.trim()) {
       if (['/mcp','/http', '/sse', '/messages','/sse/message'].includes(url.pathname)) {
         return createErrorResponse(-32001, "DataForSEO credentials not configured in worker environment variables");
       }

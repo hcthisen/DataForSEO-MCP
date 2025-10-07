@@ -18,7 +18,7 @@ import { GetPromptResult, isInitializeRequest, ReadResourceResult, ServerNotific
 import { name, version } from '../core/utils/version.js';
 import { ModuleLoaderService } from "../core/utils/module-loader.js";
 import { initializeFieldConfiguration } from '../core/config/field-configuration.js';
-import { initMcpServer } from "./init-mcp-server.js";
+import { getValidatedDataForSeoConfig, initMcpServer } from "./init-mcp-server.js";
 import { createApiKeyAuthMiddleware, loadAllowedApiKeys } from "./auth.js";
 
 // Initialize field configuration if provided
@@ -45,7 +45,8 @@ async function main() {
     
     try {
       
-      const server = initMcpServer();
+      const dataForSeoConfig = getValidatedDataForSeoConfig();
+      const server = initMcpServer(dataForSeoConfig);
       console.error(Date.now().toLocaleString())
 
       const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
