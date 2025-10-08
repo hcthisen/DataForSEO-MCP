@@ -54,40 +54,76 @@ export abstract class BaseTool {
     const logicalOperator = z.enum(["and", "or"]);
 
     const scalarValue = z.union([z.string(), z.number(), z.boolean(), z.null()]);
-    const arrayValue = z.array(z.union([z.string(), z.number(), z.boolean(), z.null()])).min(1);
+    const listValue = z.array(scalarValue).min(1);
+    const rangeValue = z.array(scalarValue).length(2);
 
-    const filterValue = z.union([scalarValue, arrayValue]);
+    const operatorValues = [
+      "=",
+      "<>",
+      "<",
+      "<=",
+      ">",
+      ">=",
+      "in",
+      "not_in",
+      "like",
+      "not_like",
+      "ilike",
+      "not_ilike",
+      "regex",
+      "not_regex",
+      "match",
+      "not_match",
+      "between",
+      "not_between",
+      "contains_all",
+      "contains_any"
+    ] as const;
 
-    const filterCondition = z.tuple([
-      z.string(),
-      z.enum([
-        "=",
-        "<>",
-        "<",
-        "<=",
-        ">",
-        ">=",
-        "in",
-        "not_in",
-        "like",
-        "not_like",
-        "ilike",
-        "not_ilike",
-        "regex",
-        "not_regex",
-        "match",
-        "not_match",
-        "between",
-        "not_between",
-        "contains_all",
-        "contains_any"
-      ]),
-      z.union([
-        filterValue,
-        z.tuple([scalarValue, scalarValue]),
-        z.array(filterValue).min(1)
-      ])
-    ]);
+    const operatorSchema = z.enum(operatorValues);
+
+    const filterCondition: z.ZodType<any> = z
+      .array(z.any())
+      .length(3)
+      .superRefine((value, ctx) => {
+        const [field, operator, filterValue] = value;
+
+        if (typeof field !== "string") {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [0],
+            message: "Field name must be a string"
+          });
+          return;
+        }
+
+        const operatorResult = operatorSchema.safeParse(operator);
+        if (!operatorResult.success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [1],
+            message: "Operator must be one of the allowed values"
+          });
+          return;
+        }
+
+        const parsedOperator = operatorResult.data;
+
+        let valueSchema: z.ZodTypeAny = scalarValue;
+        if (parsedOperator === "between" || parsedOperator === "not_between") {
+          valueSchema = rangeValue;
+        } else if (["in", "not_in", "contains_all", "contains_any"].includes(parsedOperator)) {
+          valueSchema = listValue;
+        }
+
+        if (!valueSchema.safeParse(filterValue).success) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [2],
+            message: "Invalid value for the specified operator"
+          });
+        }
+      });
 
     const filterGroup: z.ZodType<any> = z.lazy(() =>
       z.array(z.union([filterCondition, logicalOperator, filterGroup])).min(1)
